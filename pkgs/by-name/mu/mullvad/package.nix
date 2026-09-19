@@ -3,6 +3,7 @@
   stdenv,
   rustPlatform,
   fetchFromGitHub,
+  fetchurl,
   darwin,
   dbus,
   git,
@@ -14,6 +15,17 @@
   rust-jemalloc-sys,
   versionCheckHook,
 }:
+let
+  # Remember to update this list upon every release via <https://web.archive.org/save>.
+  relaysList = rec {
+    version = "20260919060532";
+    file = fetchurl {
+      url = "https://web.archive.org/web/${version}if_/https://api.mullvad.net/app/v1/relays";
+      hash = "sha256-dEolc8i13bOhgSwgdjDtBIJdkDupk0JFfAbv70kQl8U=";
+    };
+    directory = "$out/share/mullvad/resources/";
+  };
+in
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "mullvad";
@@ -83,7 +95,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
     darwin.libpcap
   ];
 
+  env.MULLVAD_RESOURCE_DIR = relaysList.directory;
   postInstall = lib.optionalString (stdenv.buildPlatform.canExecute stdenv.hostPlatform) ''
+    mkdir -p ${relaysList.directory}
+    cp ${relaysList.file} ${relaysList.directory}/relays.json
     compdir=$(mktemp -d)
     for shell in bash zsh fish; do
       $out/bin/mullvad shell-completions $shell $compdir
